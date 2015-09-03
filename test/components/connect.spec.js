@@ -1064,5 +1064,55 @@ describe('React', () => {
       expect(decorated.getWrappedInstance().someInstanceMethod()).toBe(someData);
       expect(decorated.refs.wrappedInstance.someInstanceMethod()).toBe(someData);
     });
+
+    it('should passthrough context, using definition of connecting component', () => {
+
+      const store = createStore(() => ({
+        prefix: 'test'
+      }));
+
+      @connect((state, props, context) => ({
+        uid: `${state.prefix}:${context.uid}`
+      }))
+      class ContextComponent extends Component {
+        static contextTypes = {
+          uid: PropTypes.number
+        }
+        render() {
+          return <Passthrough {...this.props} />;
+        }
+      }
+
+      class MiddleComponent extends Component {
+        render() {
+          return <ContextComponent />;
+        }
+      }
+
+      class TopLevelComponent extends Component {
+        static childContextTypes = {
+          uid: PropTypes.number
+        }
+        getChildContext() {
+          return {uid: 1234};
+        }
+        render() {
+          return <MiddleComponent />;
+        }
+      }
+
+      const container = TestUtils.renderIntoDocument(
+        <ProviderMock store={store}>
+          <TopLevelComponent />
+        </ProviderMock>
+      );
+
+      const stub = TestUtils.findRenderedComponentWithType(container, Passthrough);
+      const ctx = TestUtils.findRenderedComponentWithType(container, ContextComponent);
+
+      expect(stub.props.uid).toBe('test:1234');
+      expect(ctx.context.uid).toBe(1234);
+    });
+
   });
 });
